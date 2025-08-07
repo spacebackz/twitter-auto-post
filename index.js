@@ -19,7 +19,6 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
       return;
     }
 
-    // Assuming your column header is 'tweet_text'
     const tweetMessage = rows[0].tweet_text;
 
     // Puppeteer setup to run on Render.com
@@ -30,7 +29,6 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
       ],
-      executablePath: "/usr/bin/chromium-browser",
     });
 
     const page = await browser.newPage();
