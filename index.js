@@ -4,11 +4,17 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 puppeteer.use(StealthPlugin());
 
+// A helper function for creating a delay in SECONDS
+const sleep = (seconds) => {
+  console.log(`Waiting for ${seconds} second(s) before the next post...`);
+  return new Promise(res => setTimeout(res, seconds * 1000));
+};
+
 (async () => {
   let browser = null;
   console.log("Cron Job started...");
   try {
-    // --- 1. GET TWEET FROM GOOGLE SHEETS ---
+    // --- 1. GET ALL TWEETS FROM GOOGLE SHEETS ---
     console.log("Connecting to Google Sheets...");
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
@@ -23,12 +29,7 @@ puppeteer.use(StealthPlugin());
       console.log("Sheet is empty. No tweets to post. Exiting.");
       return;
     }
-    const tweetMessage = rows[0].tweet_text;
-    if (!tweetMessage) {
-      console.error("❌ Error: 'tweet_text' column is missing or empty in your sheet.");
-      return;
-    }
-    console.log(`Found tweet to post: "${tweetMessage}"`);
+    console.log(`Found ${rows.length} tweet(s) to post.`);
 
     // --- 2. LAUNCH BROWSER ---
     console.log("Launching optimized browser...");
@@ -39,62 +40,65 @@ puppeteer.use(StealthPlugin());
     });
     const page = await browser.newPage();
     
-    // --- 3. LOGIN METHOD: COOKIES ---
+    // --- 3. LOGIN USING COOKIES ---
     console.log("Attempting to log in with cookies...");
     const cookiesString = process.env.TWITTER_COOKIES;
-    if (!cookiesString) {
-        throw new Error("TWITTER_COOKIES environment variable not found or empty.");
-    }
+    if (!cookiesString) throw new Error("TWITTER_COOKIES environment variable not found.");
     const cookies = JSON.parse(cookiesString);
-
-    console.log("Performing strict cleaning of cookies...");
-    const validSameSiteValues = ["Strict", "Lax", "None"];
-    const cleanedCookies = cookies.map(cookie => {
-      if (cookie.hasOwnProperty('sameSite') && !validSameSiteValues.includes(cookie.sameSite)) {
-        delete cookie.sameSite;
-      }
-      return cookie;
+    const cleanedCookies = cookies.map(c => {
+      if (c.hasOwnProperty('sameSite') && !["Strict", "Lax", "None"].includes(c.sameSite)) delete c.sameSite;
+      return c;
     });
-
     await page.setCookie(...cleanedCookies);
-    console.log("Cookies loaded into browser.");
+    console.log("Cookies loaded.");
 
-    // --- 4. GO TO COMPOSE PAGE AND POST ---
-    console.log("Navigating directly to compose tweet page...");
-    await page.goto("https://twitter.com/compose/tweet", { waitUntil: "networkidle2", timeout: 60000 });
+    // --- 4. LOOP THROUGH EACH ROW AND POST ---
+    for (const [index, row] of rows.entries()) {
+      console.log(`--- Processing Tweet ${index + 1} of ${rows.length} ---`);
+      try {
+        const tweetMessage = row.tweet_text;
+        if (!tweetMessage) {
+          console.log("Row is empty, skipping.");
+          continue; 
+        }
+        console.log(`Posting: "${tweetMessage}"`);
 
-    if (page.url().includes("login")) {
-      throw new Error("Authentication with cookies failed. Your cookies may be expired. Please export and add them again.");
+        await page.goto("https://twitter.com/compose/tweet", { waitUntil: "networkidle2", timeout: 60000 });
+        if (page.url().includes("login")) throw new Error("Authentication failed. Cookies might be expired.");
+
+        const tweetTextAreaSelector = 'div[data-testid="tweetTextarea_0"]';
+        await page.waitForSelector(tweetTextAreaSelector, { timeout: 20000 });
+        await page.type(tweetTextAreaSelector, tweetMessage, { delay: 50 });
+        
+        console.log("Using keyboard shortcut (Ctrl+Enter) to post...");
+        await page.keyboard.down('Control');
+        await page.keyboard.press('Enter');
+        await page.keyboard.up('Control');
+        
+        await page.waitForSelector('[data-testid="toast"]', { timeout: 20000 });
+        console.log("✅ Tweet posted successfully!");
+        
+        await row.delete();
+        console.log("Row deleted from sheet.");
+
+        // IMPORTANT: Add a delay unless it's the very last tweet
+        if (index < rows.length - 1) {
+          await sleep(30); // Waits for 30 seconds
+        }
+
+      } catch (error) {
+        console.error(`❌ Failed to process tweet "${row.tweet_text}". Error: ${error.message}`);
+        console.log("Moving to the next tweet...");
+      }
     }
-    console.log("Successfully authenticated using cookies.");
-
-    const tweetTextAreaSelector = 'div[data-testid="tweetTextarea_0"]';
-    await page.waitForSelector(tweetTextAreaSelector, { timeout: 20000 });
-    await page.type(tweetTextAreaSelector, tweetMessage, { delay: 50 });
-    console.log("Tweet text has been typed.");
-    
-    //
-    // FINAL STRATEGY: Bypassing the button and using the keyboard shortcut to post.
-    //
-    console.log("Bypassing the 'Post' button, using keyboard shortcut (Ctrl+Enter)...");
-    await page.keyboard.down('Control');
-    await page.keyboard.press('Enter');
-    await page.keyboard.up('Control');
-    
-    await page.waitForSelector('[data-testid="toast"]', { timeout: 20000 });
-    console.log("✅ Tweet posted successfully!");
-    
-    // --- 5. CLEAN UP ---
-    await rows[0].delete();
-    console.log("Row deleted from sheet.");
 
   } catch (error) {
-    console.error("❌ An error occurred during the cron job run:", error);
+    console.error("❌ A critical error occurred:", error);
     process.exit(1);
   } finally {
     if (browser) {
       await browser.close();
-      console.log("Browser closed. Cron Job finished.");
+      console.log("Browser closed. All tweets processed. Cron Job finished.");
     }
   }
 })();
