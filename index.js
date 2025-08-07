@@ -47,16 +47,10 @@ puppeteer.use(StealthPlugin());
     }
     const cookies = JSON.parse(cookiesString);
 
-    //
-    // NEW & IMPROVED: A much stricter cleaning function for the cookies.
-    //
     console.log("Performing strict cleaning of cookies...");
     const validSameSiteValues = ["Strict", "Lax", "None"];
     const cleanedCookies = cookies.map(cookie => {
-      // Check if the sameSite key exists and if its value is not valid.
       if (cookie.hasOwnProperty('sameSite') && !validSameSiteValues.includes(cookie.sameSite)) {
-        // If the key exists but the value is invalid (e.g., null, "Unspecified"),
-        // we delete the key entirely to prevent errors.
         delete cookie.sameSite;
       }
       return cookie;
@@ -78,7 +72,11 @@ puppeteer.use(StealthPlugin());
     await page.waitForSelector(tweetTextAreaSelector, { timeout: 20000 });
     await page.type(tweetTextAreaSelector, tweetMessage, { delay: 50 });
 
-    const postButtonSelector = 'div[data-testid="tweetButtonInline"]';
+    //
+    // THIS IS THE CORRECTED LINE:
+    //
+    const postButtonSelector = 'div[data-testid="tweetButton"]';
+    await page.waitForSelector(postButtonSelector); // Wait for the button just in case
     await page.click(postButtonSelector);
     
     await page.waitForSelector('[data-testid="toast"]', { timeout: 20000 });
