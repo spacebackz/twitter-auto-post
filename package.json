@@ -9,7 +9,7 @@
     "build": "npm install && npx puppeteer install"
   },
   "dependencies": {
-    "puppeteer": "latest",
+    "puppeteer": "^22.5.0",
     "dotenv": "^16.3.1",
     "google-spreadsheet": "^3.3.0"
   }
