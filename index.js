@@ -48,14 +48,15 @@ puppeteer.use(StealthPlugin());
     const cookies = JSON.parse(cookiesString);
 
     //
-    // NEW STEP: Clean the cookies to ensure they are compatible.
+    // NEW & IMPROVED: A much stricter cleaning function for the cookies.
     //
-    console.log("Cleaning cookies for compatibility...");
+    console.log("Performing strict cleaning of cookies...");
     const validSameSiteValues = ["Strict", "Lax", "None"];
     const cleanedCookies = cookies.map(cookie => {
-      if (cookie.sameSite && !validSameSiteValues.includes(cookie.sameSite)) {
-        // If sameSite has an invalid value (e.g. "Unspecified"), remove the property
-        // so the browser can apply its default.
+      // Check if the sameSite key exists and if its value is not valid.
+      if (cookie.hasOwnProperty('sameSite') && !validSameSiteValues.includes(cookie.sameSite)) {
+        // If the key exists but the value is invalid (e.g., null, "Unspecified"),
+        // we delete the key entirely to prevent errors.
         delete cookie.sameSite;
       }
       return cookie;
