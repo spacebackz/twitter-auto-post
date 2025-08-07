@@ -1,12 +1,11 @@
-const puppeteer = require("puppeteer-extra"); // Use puppeteer-extra
-const StealthPlugin = require("puppeteer-extra-plugin-stealth"); // Import the plugin
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const { GoogleSpreadsheet } = require("google-spreadsheet");
 
-puppeteer.use(StealthPlugin()); // Tell puppeteer-extra to use the stealth plugin
+puppeteer.use(StealthPlugin());
 
 (async () => {
   try {
-    // Authenticate and fetch tweet from Google Sheet
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
@@ -24,7 +23,6 @@ puppeteer.use(StealthPlugin()); // Tell puppeteer-extra to use the stealth plugi
 
     const tweetMessage = rows[0].tweet_text;
 
-    // Puppeteer setup to run on Render.com
     const browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -35,7 +33,7 @@ puppeteer.use(StealthPlugin()); // Tell puppeteer-extra to use the stealth plugi
     });
 
     const page = await browser.newPage();
-    // ... the rest of your code to navigate and post the tweet remains the same
+
     await page.goto("https://twitter.com/login", { waitUntil: "networkidle2" });
     await page.type('input[name="text"]', process.env.TWITTER_USERNAME, { delay: 50 });
     await page.keyboard.press('Enter');
@@ -44,7 +42,6 @@ puppeteer.use(StealthPlugin()); // Tell puppeteer-extra to use the stealth plugi
     await page.keyboard.press('Enter');
     await page.waitForNavigation({ waitUntil: "networkidle2" });
 
-    // Go to tweet composition page, type message, and post
     await page.goto("https://twitter.com/compose/tweet", { waitUntil: "networkidle2" });
     await page.waitForSelector("div[aria-label='Tweet text']");
     await page.type("div[aria-label='Tweet text']", tweetMessage, { delay: 50 });
@@ -54,7 +51,7 @@ puppeteer.use(StealthPlugin()); // Tell puppeteer-extra to use the stealth plugi
 
     await browser.close();
     console.log("Tweet posted successfully!");
-    
+
   } catch (error) {
     console.error("An error occurred:", error);
   }
