@@ -6,8 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "postinstall": "npx puppeteer install",
-    "build": "npm install"
+    "build": "npm install",
+    "postinstall": "npx puppeteer install"
   },
   "dependencies": {
     "puppeteer": "^22.5.0",
