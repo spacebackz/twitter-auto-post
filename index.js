@@ -1,5 +1,8 @@
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const { GoogleSpreadsheet } = require("google-spreadsheet");
+
+puppeteer.use(StealthPlugin());
 
 (async () => {
   try {
@@ -14,7 +17,7 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
     const rows = await sheet.getRows();
 
     if (rows.length === 0) {
-      console.log("No tweets found.");
+      console.log("No tweets found in the Google Sheet. Exiting.");
       return;
     }
 
@@ -22,16 +25,20 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 
     const browser = await puppeteer.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+      ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     });
 
     const page = await browser.newPage();
-    await page.goto("https://twitter.com/login", { waitUntil: "networkidle2" });
 
+    await page.goto("https://twitter.com/login", { waitUntil: "networkidle2" });
     await page.type('input[name="text"]', process.env.TWITTER_USERNAME, { delay: 50 });
     await page.keyboard.press('Enter');
     await page.waitForTimeout(2000);
-
     await page.type('input[name="password"]', process.env.TWITTER_PASSWORD, { delay: 50 });
     await page.keyboard.press('Enter');
     await page.waitForNavigation({ waitUntil: "networkidle2" });
@@ -39,13 +46,14 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
     await page.goto("https://twitter.com/compose/tweet", { waitUntil: "networkidle2" });
     await page.waitForSelector("div[aria-label='Tweet text']");
     await page.type("div[aria-label='Tweet text']", tweetMessage, { delay: 50 });
+    await page.waitForTimeout(1000);
     await page.click("div[data-testid='tweetButtonInline']");
-
     await page.waitForTimeout(3000);
-    await browser.close();
 
-    console.log("Tweet posted!");
+    await browser.close();
+    console.log("Tweet posted successfully!");
+
   } catch (error) {
-    console.error("Error:", error);
+    console.error("An error occurred:", error);
   }
 })();
