@@ -1,4 +1,12 @@
-const puppeteer = require("puppeteer");
+const browser = await puppeteer.launch({
+  headless: true,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage", // This is a common requirement on cloud platforms
+  ],
+  executablePath: "/usr/bin/google-chrome-stable", // Or '/usr/bin/chromium-browser'
+});
 const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 (async () => {
