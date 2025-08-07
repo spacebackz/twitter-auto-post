@@ -1,0 +1,14 @@
+{
+  "name": "twitter-auto-post",
+  "version": "1.0.0",
+  "description": "Auto-post tweets from Google Sheet using Puppeteer",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "dotenv": "^16.0.0",
+    "google-spreadsheet": "^3.3.0"
+  }
+}
