@@ -39,27 +39,40 @@ puppeteer.use(StealthPlugin());
     });
     const page = await browser.newPage();
     
-    // --- 3. NEW LOGIN METHOD: USING COOKIES ---
+    // --- 3. LOGIN METHOD: COOKIES ---
     console.log("Attempting to log in with cookies...");
     const cookiesString = process.env.TWITTER_COOKIES;
     if (!cookiesString) {
-      throw new Error("TWITTER_COOKIES environment variable not found or empty.");
+        throw new Error("TWITTER_COOKIES environment variable not found or empty.");
     }
     const cookies = JSON.parse(cookiesString);
-    await page.setCookie(...cookies);
+
+    //
+    // NEW STEP: Clean the cookies to ensure they are compatible.
+    //
+    console.log("Cleaning cookies for compatibility...");
+    const validSameSiteValues = ["Strict", "Lax", "None"];
+    const cleanedCookies = cookies.map(cookie => {
+      if (cookie.sameSite && !validSameSiteValues.includes(cookie.sameSite)) {
+        // If sameSite has an invalid value (e.g. "Unspecified"), remove the property
+        // so the browser can apply its default.
+        delete cookie.sameSite;
+      }
+      return cookie;
+    });
+
+    await page.setCookie(...cleanedCookies);
     console.log("Cookies loaded into browser.");
 
     // --- 4. GO TO COMPOSE PAGE AND POST ---
     console.log("Navigating directly to compose tweet page...");
     await page.goto("https://twitter.com/compose/tweet", { waitUntil: "networkidle2", timeout: 60000 });
 
-    // Check if login failed (e.g., expired cookies)
     if (page.url().includes("login")) {
       throw new Error("Authentication with cookies failed. Your cookies may be expired. Please export and add them again.");
     }
     console.log("Successfully authenticated using cookies.");
 
-    // Post the tweet
     const tweetTextAreaSelector = 'div[data-testid="tweetTextarea_0"]';
     await page.waitForSelector(tweetTextAreaSelector, { timeout: 20000 });
     await page.type(tweetTextAreaSelector, tweetMessage, { delay: 50 });
