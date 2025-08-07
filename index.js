@@ -4,6 +4,8 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 puppeteer.use(StealthPlugin());
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
 (async () => {
   try {
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
@@ -35,15 +37,15 @@ puppeteer.use(StealthPlugin());
 
     const page = await browser.newPage();
 
-    // Increase the timeout to 60 seconds (60000 ms)
     await page.goto("https://twitter.com/login", { 
       waitUntil: "networkidle2",
-      timeout: 60000 // Set timeout to 60 seconds
+      timeout: 60000 
     });
 
     await page.type('input[name="text"]', process.env.TWITTER_USERNAME, { delay: 50 });
     await page.keyboard.press('Enter');
-    await page.waitForTimeout(2000);
+    await sleep(2000); 
+
     await page.type('input[name="password"]', process.env.TWITTER_PASSWORD, { delay: 50 });
     await page.keyboard.press('Enter');
     await page.waitForNavigation({ waitUntil: "networkidle2" });
@@ -51,9 +53,9 @@ puppeteer.use(StealthPlugin());
     await page.goto("https://twitter.com/compose/tweet", { waitUntil: "networkidle2" });
     await page.waitForSelector("div[aria-label='Tweet text']");
     await page.type("div[aria-label='Tweet text']", tweetMessage, { delay: 50 });
-    await page.waitForTimeout(1000);
+    await sleep(1000); 
     await page.click("div[data-testid='tweetButtonInline']");
-    await page.waitForTimeout(3000);
+    await sleep(3000); 
 
     await browser.close();
     console.log("Tweet posted successfully!");
