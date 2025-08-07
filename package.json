@@ -3,17 +3,12 @@
   "version": "1.0.0",
   "description": "Auto post tweets from Google Sheets using Puppeteer",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
-    "start": "node index.js",
-    "build": "npm install",
-    "postinstall": "npx puppeteer install"
+    "start": "node index.js"
   },
   "dependencies": {
     "puppeteer": "^22.5.0",
     "dotenv": "^16.3.1",
-    "google-spreadsheet": "^3.3.0",
-    "puppeteer-extra": "^3.3.0",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "google-spreadsheet": "^3.3.0"
   }
 }
