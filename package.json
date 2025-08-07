@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Auto post tweets from Google Sheets using Puppeteer",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node index.js",
-    "build": "npm install"
+    "start": "node index.js"
   },
   "dependencies": {
     "puppeteer": "^22.5.0",
