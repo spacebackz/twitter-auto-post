@@ -26,7 +26,11 @@ puppeteer.use(StealthPlugin());
       return;
     }
 
-    const tweetMessage = rows[0].get('tweet_text');
+    //
+    // THIS IS THE CORRECTED LINE:
+    //
+    const tweetMessage = rows[0].tweet_text;
+
     if (!tweetMessage) {
       console.error("❌ Error: Could not find tweet text. Check that your sheet has a column header spelled EXACTLY 'tweet_text'.");
       return;
