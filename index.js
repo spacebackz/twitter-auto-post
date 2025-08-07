@@ -71,13 +71,22 @@ puppeteer.use(StealthPlugin());
     const tweetTextAreaSelector = 'div[data-testid="tweetTextarea_0"]';
     await page.waitForSelector(tweetTextAreaSelector, { timeout: 20000 });
     await page.type(tweetTextAreaSelector, tweetMessage, { delay: 50 });
+    console.log("Tweet text has been typed.");
 
     //
-    // THIS IS THE CORRECTED LINE:
+    // THIS IS THE FINAL FIX: Using a robust XPath to find the "Post" button.
     //
-    const postButtonSelector = 'div[data-testid="tweetButton"]';
-    await page.waitForSelector(postButtonSelector); // Wait for the button just in case
-    await page.click(postButtonSelector);
+    console.log("Finding the 'Post' button...");
+    const postButtonXPath = "//div[@role='button' and .//span[text()='Post']]";
+    await page.waitForXPath(postButtonXPath, { timeout: 30000 });
+    const [postButton] = await page.$x(postButtonXPath);
+
+    if (postButton) {
+      await postButton.click();
+      console.log("'Post' button clicked.");
+    } else {
+      throw new Error("Could not find the 'Post' button using XPath. The UI may have changed.");
+    }
     
     await page.waitForSelector('[data-testid="toast"]', { timeout: 20000 });
     console.log("✅ Tweet posted successfully!");
