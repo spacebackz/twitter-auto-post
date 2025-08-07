@@ -4,19 +4,18 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 puppeteer.use(StealthPlugin());
 
-// This is a self-executing function. It runs immediately when the script starts.
+// This is the simple, self-executing script.
 (async () => {
   let browser = null;
   console.log("Cron Job started...");
   try {
-    // --- 1. CONNECT TO GOOGLE SHEETS AND VALIDATE DATA ---
+    // --- 1. CONNECT TO GOOGLE SHEETS ---
     console.log("Connecting to Google Sheets...");
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g, '\n'),
     });
-
     await doc.loadInfo();
     const sheet = doc.sheetsByIndex[0];
     const rows = await sheet.getRows();
@@ -26,19 +25,18 @@ puppeteer.use(StealthPlugin());
       return;
     }
 
-    //
-    // THIS IS THE CORRECTED LINE:
-    //
     const tweetMessage = rows[0].tweet_text;
-
     if (!tweetMessage) {
-      console.error("❌ Error: Could not find tweet text. Check that your sheet has a column header spelled EXACTLY 'tweet_text'.");
+      console.error("❌ Error: 'tweet_text' column is missing or empty in your sheet.");
       return;
     }
     console.log(`Found tweet to post: "${tweetMessage}"`);
 
     // --- 2. LAUNCH BROWSER WITH MEMORY OPTIMIZATIONS ---
     console.log("Launching optimized browser...");
+    //
+    // THIS IS THE ONLY CHANGE: Adding arguments to reduce memory usage.
+    //
     browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -48,7 +46,7 @@ puppeteer.use(StealthPlugin());
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--single-process',
+        '--single-process', // Crucial for memory reduction
         '--disable-gpu'
       ],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
@@ -59,10 +57,12 @@ puppeteer.use(StealthPlugin());
     console.log("Navigating to login page...");
     await page.goto("https://twitter.com/login", { waitUntil: "networkidle2", timeout: 60000 });
 
+    console.log("Entering username...");
     await page.waitForSelector('input[name="text"]', { timeout: 20000 });
     await page.type('input[name="text"]', process.env.TWITTER_USERNAME, { delay: 100 });
     await page.keyboard.press('Enter');
 
+    console.log("Waiting for password field...");
     await page.waitForSelector('input[name="password"]', { timeout: 20000 });
     await page.type('input[name="password"]', process.env.TWITTER_PASSWORD, { delay: 100 });
     await page.keyboard.press('Enter');
@@ -87,7 +87,7 @@ puppeteer.use(StealthPlugin());
 
   } catch (error) {
     console.error("❌ An error occurred during the cron job run:", error);
-    process.exit(1); // Exit with an error code to make sure Render logs it as a failure
+    process.exit(1);
   } finally {
     if (browser) {
       await browser.close();
