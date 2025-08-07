@@ -6,11 +6,13 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "build": "npm install && npx puppeteer install"
+    "build": "npm install"
   },
   "dependencies": {
     "puppeteer": "^22.5.0",
     "dotenv": "^16.3.1",
-    "google-spreadsheet": "^3.3.0"
+    "google-spreadsheet": "^3.3.0",
+    "puppeteer-extra": "^3.3.0",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }
