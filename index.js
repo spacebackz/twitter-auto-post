@@ -1,5 +1,8 @@
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-extra"); // Use puppeteer-extra
+const StealthPlugin = require("puppeteer-extra-plugin-stealth"); // Import the plugin
 const { GoogleSpreadsheet } = require("google-spreadsheet");
+
+puppeteer.use(StealthPlugin()); // Tell puppeteer-extra to use the stealth plugin
 
 (async () => {
   try {
@@ -32,8 +35,7 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
     });
 
     const page = await browser.newPage();
-
-    // Navigate to Twitter login and log in
+    // ... the rest of your code to navigate and post the tweet remains the same
     await page.goto("https://twitter.com/login", { waitUntil: "networkidle2" });
     await page.type('input[name="text"]', process.env.TWITTER_USERNAME, { delay: 50 });
     await page.keyboard.press('Enter');
@@ -52,7 +54,7 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 
     await browser.close();
     console.log("Tweet posted successfully!");
-
+    
   } catch (error) {
     console.error("An error occurred:", error);
   }
