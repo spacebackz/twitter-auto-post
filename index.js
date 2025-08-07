@@ -30,7 +30,7 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
       ],
-      executablePath: "/usr/bin/google-chrome-stable",
+      executablePath: "/usr/bin/chromium-browser",
     });
 
     const page = await browser.newPage();
