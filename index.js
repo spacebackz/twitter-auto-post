@@ -35,7 +35,12 @@ puppeteer.use(StealthPlugin());
 
     const page = await browser.newPage();
 
-    await page.goto("https://twitter.com/login", { waitUntil: "networkidle2" });
+    // Increase the timeout to 60 seconds (60000 ms)
+    await page.goto("https://twitter.com/login", { 
+      waitUntil: "networkidle2",
+      timeout: 60000 // Set timeout to 60 seconds
+    });
+
     await page.type('input[name="text"]', process.env.TWITTER_USERNAME, { delay: 50 });
     await page.keyboard.press('Enter');
     await page.waitForTimeout(2000);
