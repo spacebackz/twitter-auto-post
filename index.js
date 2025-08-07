@@ -4,12 +4,11 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 puppeteer.use(StealthPlugin());
 
-// This is the simple, self-executing script.
 (async () => {
   let browser = null;
   console.log("Cron Job started...");
   try {
-    // --- 1. CONNECT TO GOOGLE SHEETS ---
+    // --- 1. GET TWEET FROM GOOGLE SHEETS ---
     console.log("Connecting to Google Sheets...");
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
@@ -24,7 +23,6 @@ puppeteer.use(StealthPlugin());
       console.log("Sheet is empty. No tweets to post. Exiting.");
       return;
     }
-
     const tweetMessage = rows[0].tweet_text;
     if (!tweetMessage) {
       console.error("❌ Error: 'tweet_text' column is missing or empty in your sheet.");
@@ -32,46 +30,36 @@ puppeteer.use(StealthPlugin());
     }
     console.log(`Found tweet to post: "${tweetMessage}"`);
 
-    // --- 2. LAUNCH BROWSER WITH MEMORY OPTIMIZATIONS ---
+    // --- 2. LAUNCH BROWSER ---
     console.log("Launching optimized browser...");
-    //
-    // THIS IS THE ONLY CHANGE: Adding arguments to reduce memory usage.
-    //
     browser = await puppeteer.launch({
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process', // Crucial for memory reduction
-        '--disable-gpu'
-      ],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--no-first-run', '--no-zygote', '--single-process', '--disable-gpu'],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     });
     const page = await browser.newPage();
-
-    // --- 3. LOG IN AND POST ---
-    console.log("Navigating to login page...");
-    await page.goto("https://twitter.com/login", { waitUntil: "networkidle2", timeout: 60000 });
-
-    console.log("Entering username...");
-    await page.waitForSelector('input[name="text"]', { timeout: 20000 });
-    await page.type('input[name="text"]', process.env.TWITTER_USERNAME, { delay: 100 });
-    await page.keyboard.press('Enter');
-
-    console.log("Waiting for password field...");
-    await page.waitForSelector('input[name="password"]', { timeout: 20000 });
-    await page.type('input[name="password"]', process.env.TWITTER_PASSWORD, { delay: 100 });
-    await page.keyboard.press('Enter');
     
-    await page.waitForSelector('a[data-testid="AppTabBar_Home_Link"]', { timeout: 60000 });
-    console.log("Login successful!");
+    // --- 3. NEW LOGIN METHOD: USING COOKIES ---
+    console.log("Attempting to log in with cookies...");
+    const cookiesString = process.env.TWITTER_COOKIES;
+    if (!cookiesString) {
+      throw new Error("TWITTER_COOKIES environment variable not found or empty.");
+    }
+    const cookies = JSON.parse(cookiesString);
+    await page.setCookie(...cookies);
+    console.log("Cookies loaded into browser.");
 
+    // --- 4. GO TO COMPOSE PAGE AND POST ---
+    console.log("Navigating directly to compose tweet page...");
     await page.goto("https://twitter.com/compose/tweet", { waitUntil: "networkidle2", timeout: 60000 });
 
+    // Check if login failed (e.g., expired cookies)
+    if (page.url().includes("login")) {
+      throw new Error("Authentication with cookies failed. Your cookies may be expired. Please export and add them again.");
+    }
+    console.log("Successfully authenticated using cookies.");
+
+    // Post the tweet
     const tweetTextAreaSelector = 'div[data-testid="tweetTextarea_0"]';
     await page.waitForSelector(tweetTextAreaSelector, { timeout: 20000 });
     await page.type(tweetTextAreaSelector, tweetMessage, { delay: 50 });
@@ -82,6 +70,7 @@ puppeteer.use(StealthPlugin());
     await page.waitForSelector('[data-testid="toast"]', { timeout: 20000 });
     console.log("✅ Tweet posted successfully!");
     
+    // --- 5. CLEAN UP ---
     await rows[0].delete();
     console.log("Row deleted from sheet.");
 
