@@ -74,14 +74,12 @@ puppeteer.use(StealthPlugin());
     console.log("Tweet text has been typed.");
     
     //
-    // THIS IS THE FINAL FIX: Wait for the button to be enabled before clicking.
+    // FINAL STRATEGY: Bypassing the button and using the keyboard shortcut to post.
     //
-    console.log("Waiting for the 'Post' button to become enabled...");
-    const postButtonSelector = 'div[data-testid="tweetButton"]:not([aria-disabled="true"])';
-    await page.waitForSelector(postButtonSelector, { timeout: 30000 });
-    
-    console.log("'Post' button is enabled. Clicking...");
-    await page.click(postButtonSelector);
+    console.log("Bypassing the 'Post' button, using keyboard shortcut (Ctrl+Enter)...");
+    await page.keyboard.down('Control');
+    await page.keyboard.press('Enter');
+    await page.keyboard.up('Control');
     
     await page.waitForSelector('[data-testid="toast"]', { timeout: 20000 });
     console.log("✅ Tweet posted successfully!");
