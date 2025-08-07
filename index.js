@@ -23,6 +23,7 @@ puppeteer.use(StealthPlugin());
 
     const tweetMessage = rows[0].tweet_text;
 
+    // Use the environment variable to find the browser
     const browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -30,6 +31,7 @@ puppeteer.use(StealthPlugin());
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
       ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     });
 
     const page = await browser.newPage();
