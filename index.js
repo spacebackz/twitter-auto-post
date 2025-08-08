@@ -14,23 +14,13 @@ const sleep = (seconds) => {
   let browser = null;
   console.log("Cron Job started...");
   try {
-    // --- 1. GET ALL TWEETS FROM GOOGLE SHEETS ---
-    console.log("Connecting to Google Sheets...");
+    // --- 1. CONNECT TO GOOGLE SHEETS ---
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g, '\n'),
     });
-    await doc.loadInfo();
-    const sheet = doc.sheetsByIndex[0];
-    const rows = await sheet.getRows();
-
-    if (rows.length === 0) {
-      console.log("Sheet is empty. No tweets to post. Exiting.");
-      return;
-    }
-    console.log(`Found ${rows.length} tweet(s) to post.`);
-
+    
     // --- 2. LAUNCH BROWSER ---
     console.log("Launching optimized browser...");
     browser = await puppeteer.launch({
@@ -52,16 +42,34 @@ const sleep = (seconds) => {
     await page.setCookie(...cleanedCookies);
     console.log("Cookies loaded.");
 
-    // --- 4. LOOP THROUGH EACH ROW AND POST ---
-    for (const [index, row] of rows.entries()) {
-      console.log(`--- Processing Tweet ${index + 1} of ${rows.length} ---`);
+    // --- 4. NEW LOGIC: Use a while loop to process one tweet at a time ---
+    let tweetsPosted = 0;
+    while (true) {
+      await doc.loadInfo(); // Re-load sheet info each time
+      const sheet = doc.sheetsByIndex[0];
+      const rows = await sheet.getRows();
+
+      if (rows.length === 0) {
+        console.log("Sheet is empty. All tweets have been processed.");
+        break; // Exit the while loop
+      }
+
+      // If we've already posted at least one tweet, wait before posting the next one.
+      if (tweetsPosted > 0) {
+        await sleep(30);
+      }
+      
+      const row = rows[0]; // Always get the top row
+      const tweetMessage = row.get('tweet_text'); // Use .get() for robustness with headers
+      
+      console.log(`--- Processing top tweet: "${tweetMessage}" ---`);
+      
       try {
-        const tweetMessage = row.tweet_text;
         if (!tweetMessage) {
-          console.log("Row is empty, skipping.");
+          console.log("Row is empty, deleting and skipping.");
+          await row.delete();
           continue; 
         }
-        console.log(`Posting: "${tweetMessage}"`);
 
         await page.goto("https://twitter.com/compose/tweet", { waitUntil: "networkidle2", timeout: 60000 });
         if (page.url().includes("login")) throw new Error("Authentication failed. Cookies might be expired.");
@@ -70,25 +78,20 @@ const sleep = (seconds) => {
         await page.waitForSelector(tweetTextAreaSelector, { timeout: 20000 });
         await page.type(tweetTextAreaSelector, tweetMessage, { delay: 50 });
         
-        console.log("Using keyboard shortcut (Ctrl+Enter) to post...");
         await page.keyboard.down('Control');
         await page.keyboard.press('Enter');
         await page.keyboard.up('Control');
         
         await page.waitForSelector('[data-testid="toast"]', { timeout: 20000 });
         console.log("✅ Tweet posted successfully!");
+        tweetsPosted++;
         
         await row.delete();
-        console.log("Row deleted from sheet.");
-
-        // IMPORTANT: Add a delay unless it's the very last tweet
-        if (index < rows.length - 1) {
-          await sleep(30); // Waits for 30 seconds
-        }
+        console.log("Row deleted successfully from sheet.");
 
       } catch (error) {
-        console.error(`❌ Failed to process tweet "${row.tweet_text}". Error: ${error.message}`);
-        console.log("Moving to the next tweet...");
+        console.error(`❌ Failed to process tweet "${tweetMessage}". Error: ${error.message}`);
+        break; // Stop the process if one tweet fails, to avoid losing data
       }
     }
 
@@ -98,7 +101,7 @@ const sleep = (seconds) => {
   } finally {
     if (browser) {
       await browser.close();
-      console.log("Browser closed. All tweets processed. Cron Job finished.");
+      console.log("Browser closed. Cron Job finished.");
     }
   }
 })();
