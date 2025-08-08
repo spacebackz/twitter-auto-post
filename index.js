@@ -28,7 +28,7 @@ const sleep = (seconds) => {
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--disable-dbus'
-        // Note: executablePath is NOT here
+        // executablePath is correctly REMOVED
       ],
     });
     const page = await browser.newPage();
@@ -60,7 +60,8 @@ const sleep = (seconds) => {
       }
       
       const row = rows[0]; 
-      const tweetMessage = row.get('tweet_text');
+      // This line is corrected from .get('tweet_text') to .tweet_text
+      const tweetMessage = row.tweet_text; 
       
       console.log(`--- Processing top tweet: "${tweetMessage}" ---`);
       
