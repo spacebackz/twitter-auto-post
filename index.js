@@ -1,3 +1,5 @@
+console.log("--- RUNNING THE FINAL, CORRECTED SCRIPT - V5 ---"); // Our test message
+
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const { GoogleSpreadsheet } = require("google-spreadsheet");
@@ -28,7 +30,7 @@ const sleep = (seconds) => {
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--disable-dbus'
-        // executablePath is correctly REMOVED
+        // The executablePath line is correctly REMOVED.
       ],
     });
     const page = await browser.newPage();
@@ -60,7 +62,6 @@ const sleep = (seconds) => {
       }
       
       const row = rows[0]; 
-      // This line is corrected from .get('tweet_text') to .tweet_text
       const tweetMessage = row.tweet_text; 
       
       console.log(`--- Processing top tweet: "${tweetMessage}" ---`);
