@@ -1,22 +1,63 @@
-FROM node:22.16.0-bookworm-slim
+# Use an official Node.js runtime as a parent image
+FROM node:18-bookworm-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget gnupg ca-certificates fonts-liberation libappindicator3-1 libasound2 libatk-bridge2.0-0 \
-    libcups2 libgdk-pixbuf2.0-0 libnspr4 libnss3 libxss1 xdg-utils libgbm-dev libglib2.0-0 \
-    libxrandr2 libgtk-3-0 libgtk-3-common libxcomposite1 libxcursor1 libxdamage1 libxext6 \
-    libxfixes3 libxi6 libxrandr2 libxrender1 libxshmfence1 libxkbcommon0 -y
-
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/trusted.gpg.d/google-chrome.gpg \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update -y && apt-get install google-chrome-stable -y
-
+# Set the working directory in the container
 WORKDIR /app
 
+# Install necessary dependencies for Puppeteer's bundled Chromium
+# This is a standard list from the Puppeteer team's recommendations
+RUN apt-get update \
+    && apt-get install -yq --no-install-recommends \
+    ca-certificates \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcairo2 \
+    libcups2 \
+    libdbus-1-3 \
+    libexpat1 \
+    libfontconfig1 \
+    libgbm1 \
+    libgconf-2-4 \
+    libgdk-pixbuf2.0-0 \
+    libglib2.0-0 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    lsb-release \
+    wget \
+    xdg-utils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package.json and package-lock.json
 COPY package.json ./
+
+# Install app dependencies
+# The puppeteer install script will download a compatible browser
 RUN npm install
 
+# Bundle app source
 COPY . .
 
-ENV PUPPETEER_EXECUTABLE_PATH="/usr/bin/google-chrome-stable"
+# Your app binds to this port (if it were a web service)
+# EXPOSE 3000
 
+# Defines the command to run your app
 CMD ["node", "index.js"]
