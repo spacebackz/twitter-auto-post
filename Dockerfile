@@ -17,15 +17,8 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package.json to install dependencies
 COPY package.json ./
-
-# Install app dependencies
-# The puppeteer install script will download a compatible browser
 RUN npm install
-
-# Bundle app source
 COPY . .
 
-# Defines the command to run your app
 CMD ["node", "index.js"]
