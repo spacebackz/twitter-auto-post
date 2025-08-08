@@ -14,23 +14,33 @@ const sleep = (seconds) => {
   let browser = null;
   console.log("Cron Job started...");
   try {
-    // --- 1. CONNECT TO GOOGLE SHEETS ---
+    // --- STEP 1: CONNECT TO GOOGLE SHEETS AND CHECK FOR WORK FIRST ---
+    console.log("Connecting to Google Sheets to check for tweets...");
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g, '\n'),
     });
+    await doc.loadInfo();
+    const sheet = doc.sheetsByIndex[0];
+    const rows = await sheet.getRows();
+
+    // --- STEP 2: EXIT EARLY IF THE SHEET IS EMPTY ---
+    if (rows.length === 0) {
+      console.log("Sheet is empty. No work to do. Exiting efficiently. ✅");
+      return; // Exit the script immediately
+    }
+    console.log(`Found ${rows.length} tweet(s) to process.`);
     
-    // --- 2. LAUNCH BROWSER ---
+    // --- STEP 3: LAUNCH BROWSER AND LOGIN (ONLY IF THERE'S WORK) ---
     console.log("Launching optimized browser...");
     browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--no-first-run', '--no-zygote', '--single-process', '--disable-gpu'],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-dbus'],
+      // Note: executablePath is correctly REMOVED
     });
     const page = await browser.newPage();
     
-    // --- 3. LOGIN USING COOKIES ---
     console.log("Attempting to log in with cookies...");
     const cookiesString = process.env.TWITTER_COOKIES;
     if (!cookiesString) throw new Error("TWITTER_COOKIES environment variable not found.");
@@ -42,15 +52,15 @@ const sleep = (seconds) => {
     await page.setCookie(...cleanedCookies);
     console.log("Cookies loaded.");
 
-    // --- 4. NEW LOGIC: Use a while loop to process one tweet at a time ---
+    // --- STEP 4: PROCESS ALL TWEETS USING THE ROBUST WHILE LOOP ---
     let tweetsPosted = 0;
     while (true) {
-      await doc.loadInfo(); // Re-load sheet info each time
-      const sheet = doc.sheetsByIndex[0];
-      const rows = await sheet.getRows();
+      // Re-fetch rows inside the loop to prevent deletion errors
+      await doc.loadInfo(); 
+      const currentRows = await sheet.getRows();
 
-      if (rows.length === 0) {
-        console.log("Sheet is empty. All tweets have been processed.");
+      if (currentRows.length === 0) {
+        console.log("All tweets have been processed.");
         break; // Exit the while loop
       }
 
@@ -58,19 +68,15 @@ const sleep = (seconds) => {
         await sleep(30);
       }
       
-      const row = rows[0]; // Always get the top row
-      
-      //
-      // THIS IS THE CORRECTED LINE:
-      //
-      const tweetMessage = row.tweet_text;
+      const rowToProcess = currentRows[0]; 
+      const tweetMessage = rowToProcess.tweet_text; 
       
       console.log(`--- Processing top tweet: "${tweetMessage}" ---`);
       
       try {
         if (!tweetMessage) {
           console.log("Row is empty, deleting and skipping.");
-          await row.delete();
+          await rowToProcess.delete();
           continue; 
         }
 
@@ -89,7 +95,7 @@ const sleep = (seconds) => {
         console.log("✅ Tweet posted successfully!");
         tweetsPosted++;
         
-        await row.delete();
+        await rowToProcess.delete();
         console.log("Row deleted successfully from sheet.");
 
       } catch (error) {
