@@ -1,11 +1,10 @@
-console.log("--- RUNNING THE FINAL, CORRECTED SCRIPT - V5 ---"); // Our test message
-
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 puppeteer.use(StealthPlugin());
 
+// A helper function for creating a delay in SECONDS
 const sleep = (seconds) => {
   console.log(`Waiting for ${seconds} second(s) before the next post...`);
   return new Promise(res => setTimeout(res, seconds * 1000));
@@ -15,26 +14,23 @@ const sleep = (seconds) => {
   let browser = null;
   console.log("Cron Job started...");
   try {
+    // --- 1. CONNECT TO GOOGLE SHEETS ---
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g, '\n'),
     });
     
-    console.log("Launching browser...");
+    // --- 2. LAUNCH BROWSER ---
+    console.log("Launching optimized browser...");
     browser = await puppeteer.launch({
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-dbus'
-        // The executablePath line is correctly REMOVED.
-      ],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--no-first-run', '--no-zygote', '--single-process', '--disable-gpu'],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     });
     const page = await browser.newPage();
     
+    // --- 3. LOGIN USING COOKIES ---
     console.log("Attempting to log in with cookies...");
     const cookiesString = process.env.TWITTER_COOKIES;
     if (!cookiesString) throw new Error("TWITTER_COOKIES environment variable not found.");
@@ -46,23 +42,25 @@ const sleep = (seconds) => {
     await page.setCookie(...cleanedCookies);
     console.log("Cookies loaded.");
 
+    // --- 4. NEW LOGIC: Use a while loop to process one tweet at a time ---
     let tweetsPosted = 0;
     while (true) {
-      await doc.loadInfo(); 
+      await doc.loadInfo(); // Re-load sheet info each time
       const sheet = doc.sheetsByIndex[0];
       const rows = await sheet.getRows();
 
       if (rows.length === 0) {
         console.log("Sheet is empty. All tweets have been processed.");
-        break; 
+        break; // Exit the while loop
       }
 
+      // If we've already posted at least one tweet, wait before posting the next one.
       if (tweetsPosted > 0) {
         await sleep(30);
       }
       
-      const row = rows[0]; 
-      const tweetMessage = row.tweet_text; 
+      const row = rows[0]; // Always get the top row
+      const tweetMessage = row.get('tweet_text'); // Use .get() for robustness with headers
       
       console.log(`--- Processing top tweet: "${tweetMessage}" ---`);
       
@@ -93,7 +91,7 @@ const sleep = (seconds) => {
 
       } catch (error) {
         console.error(`❌ Failed to process tweet "${tweetMessage}". Error: ${error.message}`);
-        break;
+        break; // Stop the process if one tweet fails, to avoid losing data
       }
     }
 
