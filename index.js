@@ -4,7 +4,6 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 puppeteer.use(StealthPlugin());
 
-// A helper function for creating a delay in SECONDS
 const sleep = (seconds) => {
   console.log(`Waiting for ${seconds} second(s) before the next post...`);
   return new Promise(res => setTimeout(res, seconds * 1000));
@@ -14,36 +13,26 @@ const sleep = (seconds) => {
   let browser = null;
   console.log("Cron Job started...");
   try {
-    // --- 1. GET TWEETS FROM GOOGLE SHEETS ---
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g, '\n'),
     });
     
-    // --- 2. LAUNCH BROWSER ---
     console.log("Launching browser...");
-    //
-    // THIS IS THE KEY CHANGE: We remove 'executablePath' and add '--disable-dbus'
-    //
     browser = await puppeteer.launch({
       headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
         '--disable-gpu',
-        '--disable-dbus' // Added this flag
+        '--disable-dbus'
+        // Note: executablePath is NOT here
       ],
-      // executablePath line is REMOVED
     });
     const page = await browser.newPage();
     
-    // --- 3. LOGIN USING COOKIES ---
     console.log("Attempting to log in with cookies...");
     const cookiesString = process.env.TWITTER_COOKIES;
     if (!cookiesString) throw new Error("TWITTER_COOKIES environment variable not found.");
@@ -55,7 +44,6 @@ const sleep = (seconds) => {
     await page.setCookie(...cleanedCookies);
     console.log("Cookies loaded.");
 
-    // --- 4. LOOP AND POST LOGIC ---
     let tweetsPosted = 0;
     while (true) {
       await doc.loadInfo(); 
