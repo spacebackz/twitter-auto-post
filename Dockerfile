@@ -17,7 +17,7 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package.json and package-lock.json
+# Copy package.json to install dependencies
 COPY package.json ./
 
 # Install app dependencies
