@@ -54,13 +54,16 @@ const sleep = (seconds) => {
         break; // Exit the while loop
       }
 
-      // If we've already posted at least one tweet, wait before posting the next one.
       if (tweetsPosted > 0) {
         await sleep(30);
       }
       
       const row = rows[0]; // Always get the top row
-      const tweetMessage = row.get('tweet_text'); // Use .get() for robustness with headers
+      
+      //
+      // THIS IS THE CORRECTED LINE:
+      //
+      const tweetMessage = row.tweet_text;
       
       console.log(`--- Processing top tweet: "${tweetMessage}" ---`);
       
@@ -91,7 +94,7 @@ const sleep = (seconds) => {
 
       } catch (error) {
         console.error(`❌ Failed to process tweet "${tweetMessage}". Error: ${error.message}`);
-        break; // Stop the process if one tweet fails, to avoid losing data
+        break;
       }
     }
 
