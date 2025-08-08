@@ -14,7 +14,7 @@ const sleep = (seconds) => {
   let browser = null;
   console.log("Cron Job started...");
   try {
-    // --- 1. CONNECT TO GOOGLE SHEETS ---
+    // --- 1. GET TWEETS FROM GOOGLE SHEETS ---
     const doc = new GoogleSpreadsheet(process.env.GOOGLE_SHEET_ID);
     await doc.useServiceAccountAuth({
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
@@ -22,11 +22,24 @@ const sleep = (seconds) => {
     });
     
     // --- 2. LAUNCH BROWSER ---
-    console.log("Launching optimized browser...");
+    console.log("Launching browser...");
+    //
+    // THIS IS THE KEY CHANGE: We remove 'executablePath' and add '--disable-dbus'
+    //
     browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--no-first-run', '--no-zygote', '--single-process', '--disable-gpu'],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu',
+        '--disable-dbus' // Added this flag
+      ],
+      // executablePath line is REMOVED
     });
     const page = await browser.newPage();
     
@@ -42,25 +55,24 @@ const sleep = (seconds) => {
     await page.setCookie(...cleanedCookies);
     console.log("Cookies loaded.");
 
-    // --- 4. NEW LOGIC: Use a while loop to process one tweet at a time ---
+    // --- 4. LOOP AND POST LOGIC ---
     let tweetsPosted = 0;
     while (true) {
-      await doc.loadInfo(); // Re-load sheet info each time
+      await doc.loadInfo(); 
       const sheet = doc.sheetsByIndex[0];
       const rows = await sheet.getRows();
 
       if (rows.length === 0) {
         console.log("Sheet is empty. All tweets have been processed.");
-        break; // Exit the while loop
+        break; 
       }
 
-      // If we've already posted at least one tweet, wait before posting the next one.
       if (tweetsPosted > 0) {
         await sleep(30);
       }
       
-      const row = rows[0]; // Always get the top row
-      const tweetMessage = row.get('tweet_text'); // Use .get() for robustness with headers
+      const row = rows[0]; 
+      const tweetMessage = row.get('tweet_text');
       
       console.log(`--- Processing top tweet: "${tweetMessage}" ---`);
       
@@ -91,7 +103,7 @@ const sleep = (seconds) => {
 
       } catch (error) {
         console.error(`❌ Failed to process tweet "${tweetMessage}". Error: ${error.message}`);
-        break; // Stop the process if one tweet fails, to avoid losing data
+        break;
       }
     }
 
