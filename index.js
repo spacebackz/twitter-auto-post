@@ -65,7 +65,7 @@ const sleep = (seconds) => {
       }
 
       if (tweetsPosted > 0) {
-        await sleep(30);
+        await sleep(5);
       }
       
       const rowToProcess = currentRows[0]; 
@@ -85,7 +85,7 @@ const sleep = (seconds) => {
 
         const tweetTextAreaSelector = 'div[data-testid="tweetTextarea_0"]';
         await page.waitForSelector(tweetTextAreaSelector, { timeout: 20000 });
-        await page.type(tweetTextAreaSelector, tweetMessage, { delay: 50 });
+        await page.type(tweetTextAreaSelector, tweetMessage, { delay: 30 });
         
         await page.keyboard.down('Control');
         await page.keyboard.press('Enter');
