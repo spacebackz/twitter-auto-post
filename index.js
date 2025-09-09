@@ -1,5 +1,5 @@
-// index.js - Full robust Twitter auto-post script
-// Put this file as a replacement for your existing index.js
+// index.js - Fixed: no page.waitForTimeout usage (use sleep instead)
+// Full robust Twitter auto-post script — drop-in replacement
 
 // -------------------- DEBUG BOOTSTRAP (VERY TOP) --------------------
 console.log('DEBUG BOOTSTRAP: starting index.js at', new Date().toISOString());
@@ -38,8 +38,8 @@ const DEBUG_DIR = path.join(process.cwd(), 'debug');
 
 if (!fs.existsSync(DEBUG_DIR)) fs.mkdirSync(DEBUG_DIR);
 
-// Helper: sleep seconds
-const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
+// Helper: sleep milliseconds
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Save screenshot + HTML for debugging
 async function saveDebug(page, namePrefix = 'debug') {
@@ -66,7 +66,7 @@ async function waitForOptionalSelector(page, selector, opts = {}) {
   }
 }
 
-// -------------------- Robust postTweet implementation --------------------
+// -------------------- Robust postTweet implementation (no page.waitForTimeout) --------------------
 async function postTweet(page, tweetMessage) {
   const MAX_ATTEMPTS = POST_ATTEMPT_RETRIES + 1;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -102,17 +102,14 @@ async function postTweet(page, tweetMessage) {
         const node = el instanceof HTMLElement ? el : (typeof el === 'string' ? document.querySelector(el) : el);
         if (!node) throw new Error('composer node not present in evaluate');
         node.focus();
-        // Clear and set text
         node.innerText = '';
-        // Use textContent to set the text
         node.textContent = text;
-        // Dispatch input events
         node.dispatchEvent(new Event('input', { bubbles: true }));
         node.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
       }, targetCE, tweetMessage);
 
-      // Slight pause
-      await page.waitForTimeout(400);
+      // Slight pause using sleep (ms)
+      await sleep(400);
 
       // Try clicking tweet button using multiple selectors
       const tweetButtonSelectors = [
@@ -175,7 +172,6 @@ async function postTweet(page, tweetMessage) {
           }, tweetMessage.slice(0, 50));
           if (foundInHome) { await profilePage.close(); return { type: 'timeline-home' }; }
           // fallback: try profile
-          // Attempt to find profile link/href on the main page (use existing page to get href)
           const profileHref = await page.evaluate(() => {
             const el = document.querySelector('a[aria-label="Profile"], a[href^="/"]');
             return el ? el.getAttribute('href') : null;
@@ -193,7 +189,8 @@ async function postTweet(page, tweetMessage) {
         return null;
       })();
 
-      const results = await Promise.race([waitForToast, waitForComposerClear, checkPostedInTimeline, new Promise(r=>setTimeout(()=>r(null), raceTimeout))]);
+      // Race them (with a fallback timer)
+      const results = await Promise.race([waitForToast, waitForComposerClear, checkPostedInTimeline, sleep(raceTimeout).then(()=>null)]);
 
       if (results && results.type) {
         console.log('Post success signal:', results.type);
@@ -218,7 +215,7 @@ async function postTweet(page, tweetMessage) {
         try { await saveDebug(page, 'tweet-post-failure'); } catch(e){ console.error('saveDebug failed', e); }
         return { ok: false, error: String(err) };
       }
-      await page.waitForTimeout(1500 * attempt);
+      await sleep(1500 * attempt);
     }
   }
   return { ok: false, error: 'exhausted attempts' };
@@ -288,7 +285,7 @@ async function postTweet(page, tweetMessage) {
         break;
       }
 
-      if (tweetsPosted > 0) await sleep(BETWEEN_TWEETS_SECONDS);
+      if (tweetsPosted > 0) await sleep(BETWEEN_TWEETS_SECONDS * 1000);
 
       const rowToProcess = currentRows[0];
       const tweetMessage = rowToProcess.tweet_text;
@@ -305,14 +302,8 @@ async function postTweet(page, tweetMessage) {
         const res = await postTweet(page, tweetMessage);
         if (!res.ok) {
           console.error(`❌ Failed to post tweet: ${res.error}`);
-          // Option: You can move the failing row to an error sheet or mark it. For safety, we do NOT delete it automatically.
-          // To avoid infinite loop, delete after repeated failures or move to another sheet — implement as needed.
-          // For now, we'll skip deleting so you can inspect the row.
-          // Wait a bit before continuing to avoid tight loop
-          await sleep(2);
-          // optionally continue to next row (we'll rotate by deleting to avoid reprocessing same bad row)
-          // If you want to skip it permanently, uncomment next line:
-          // await rowToProcess.delete();
+          // For safety, we do NOT delete failed rows automatically so you can inspect them.
+          await sleep(2000);
         } else {
           tweetsPosted++;
           await rowToProcess.delete();
